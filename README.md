@@ -1,4 +1,8 @@
-# fastpdf4llm
+# 🚀 fastpdf4llm: PDF to LLM-Ready Markdown in Seconds
+
+
+[![CI](https://github.com/moria97/fastpdf4llm/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/moria97/fastpdf4llm/actions/workflows/ci.yml)
+
 
 A fast and efficient PDF to Markdown converter optimized for LLM (Large Language Model) processing. This tool intelligently extracts text, tables, and images from PDF files and converts them into well-structured Markdown format.
 
