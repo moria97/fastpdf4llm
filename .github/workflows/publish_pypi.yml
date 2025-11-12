@@ -1,4 +1,4 @@
-name: Publish-TestPypi
+name: Publish-Pypi-Production
 
 on:
   push:
