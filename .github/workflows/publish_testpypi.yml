@@ -91,6 +91,18 @@ jobs:
         with:
           repository-url: https://test.pypi.org/legacy/
   
+      - name: Get previous tag
+        id: previous_tag
+        run: |
+          # Get the latest tag before creating the new one
+          PREVIOUS_TAG=$(git tag --sort=-version:refname | head -n 1 || echo "")
+          if [ -z "$PREVIOUS_TAG" ]; then
+            # No previous tag, use the initial commit
+            PREVIOUS_TAG=$(git rev-list --max-parents=0 HEAD)
+          fi
+          echo "tag=$PREVIOUS_TAG" >> $GITHUB_OUTPUT
+          echo "Previous tag: $PREVIOUS_TAG"
+
       - name: Create Git tag
         if: success()
         run: |
@@ -98,3 +110,41 @@ jobs:
           git config --local user.name "GitHub Action"
           git tag -a "v${{ steps.get_version.outputs.version }}" -m "Release version ${{ steps.get_version.outputs.version }}"
           git push origin "v${{ steps.get_version.outputs.version }}"
+
+      - name: Generate release notes
+        id: release_notes
+        run: |
+          PREVIOUS_TAG="${{ steps.previous_tag.outputs.tag }}"
+          CURRENT_TAG="v${{ steps.get_version.outputs.version }}"
+          
+          # Get commits since previous tag
+          if git rev-parse --verify "$PREVIOUS_TAG" >/dev/null 2>&1; then
+            RELEASE_NOTES=$(git log ${PREVIOUS_TAG}..HEAD --pretty=format:"- %s (%h)" --reverse || echo "- Initial release")
+          else
+            RELEASE_NOTES=$(git log --pretty=format:"- %s (%h)" --reverse || echo "- Initial release")
+          fi
+          
+          # Create release notes with header
+          NOTES=$(cat <<EOF
+          ## What's Changed
+          
+          $RELEASE_NOTES
+          
+          **Full Changelog**: https://github.com/${{ github.repository }}/compare/${PREVIOUS_TAG}...${CURRENT_TAG}
+          EOF
+          )
+          
+          echo "notes<<EOF" >> $GITHUB_OUTPUT
+          echo "$NOTES" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Create GitHub Release
+        if: success()
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: v${{ steps.get_version.outputs.version }}
+          name: Release v${{ steps.get_version.outputs.version }}
+          body: ${{ steps.release_notes.outputs.notes }}
+          draft: false
+          prerelease: false
+          generate_release_notes: false
