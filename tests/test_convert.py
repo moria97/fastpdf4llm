@@ -80,7 +80,7 @@ def test_progress_callback(pdf_path):
         assert progress.current_page >= 0
         assert progress.total_pages > 0
 
-    result = to_markdown(pdf_path, progress_callback=progress_callback)
+    _ = to_markdown(pdf_path, progress_callback=progress_callback)
 
     # Verify that callback was called at least once
     assert len(progress_calls) > 0, "Progress callback should be called at least once"
@@ -105,7 +105,7 @@ def test_progress_callback_ordering(pdf_path):
     def progress_callback(progress: ProgressInfo):
         progress_calls.append(progress)
 
-    result = to_markdown(pdf_path, progress_callback=progress_callback)
+    _ = to_markdown(pdf_path, progress_callback=progress_callback)
 
     # Verify that analysis phase comes before conversion phase
     if len(progress_calls) > 1:

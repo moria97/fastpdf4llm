@@ -255,7 +255,9 @@ class PageConverter:
                                     .strip()
                                 )
                             except Exception as ex:
-                                logger.warning(f"Failed to find span {current_bbox}, processing word {word}")
+                                logger.warning(
+                                    f"Failed to find span {current_bbox}, processing word {word}, reason: {ex}"
+                                )
                                 continue
 
                             if last_is_bold:
@@ -276,8 +278,8 @@ class PageConverter:
                         span_text = (
                             self.text_content_area.within_bbox(current_bbox).dedupe_chars().extract_text().strip()
                         )
-                    except Exception as ex:
-                        logger.error(f"Failed to find span {current_bbox}.")
+                    except Exception:
+                        logger.warning(f"Failed to find span {current_bbox}.")
                         continue
 
                     if last_is_bold:
