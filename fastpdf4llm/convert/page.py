@@ -249,12 +249,15 @@ class PageConverter:
                         if word_is_bold != last_is_bold:
                             try:
                                 span_text = (
-                                    self.text_content_area.within_bbox(current_bbox).dedupe_chars().extract_text().strip()
+                                    self.text_content_area.within_bbox(current_bbox)
+                                    .dedupe_chars()
+                                    .extract_text()
+                                    .strip()
                                 )
                             except Exception as ex:
                                 logger.warning(f"Failed to find span {current_bbox}, processing word {word}")
                                 continue
-                            
+
                             if last_is_bold:
                                 line_markdown += f"**{span_text}**"
                             else:

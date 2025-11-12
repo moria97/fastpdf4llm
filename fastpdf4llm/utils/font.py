@@ -82,7 +82,7 @@ class FontSizeClassifier:
         """Calculate average ratio and standard deviation between consecutive font sizes."""
         if not larger_sizes:
             return 0, 0
-            
+
         size_ratios = [larger_sizes[i] / larger_sizes[i + 1] for i in range(len(larger_sizes) - 1)]
 
         if not size_ratios:
@@ -107,7 +107,11 @@ class FontSizeClassifier:
         normal_text_candidate = self.font_size_counts.most_common(1)[0][0]
         normal_text_weight = self.font_size_counts[normal_text_candidate]
         for size, weight in self.font_size_counts.items():
-            if size > normal_text_candidate and weight >= normal_text_weight * 0.4 and size < normal_text_candidate * 1.6:
+            if (
+                size > normal_text_candidate
+                and weight >= normal_text_weight * 0.4
+                and size < normal_text_candidate * 1.6
+            ):
                 normal_text_candidate = size
 
         self.normal_text_size = normal_text_candidate

@@ -71,7 +71,10 @@ class Line(BaseModel):
             self.words = [word]
         else:
             # 距离接近且字体相同，直接合并
-            if is_bold_font(word["fontname"]) == is_bold_font(self.words[-1]["fontname"]) and word["x0"] - self.words[-1]["x1"] < MAX_WIDTH_GAP_SIZE:
+            if (
+                is_bold_font(word["fontname"]) == is_bold_font(self.words[-1]["fontname"])
+                and word["x0"] - self.words[-1]["x1"] < MAX_WIDTH_GAP_SIZE
+            ):
                 self.words[-1]["top"] = min(self.words[-1]["top"], word["top"])
                 self.words[-1]["bottom"] = max(self.words[-1]["bottom"], word["bottom"])
                 self.words[-1]["x0"] = min(self.words[-1]["x0"], word["x0"])
@@ -79,7 +82,7 @@ class Line(BaseModel):
                 self.words[-1]["text"] += "++" + word["text"]
             else:
                 self.words.append(word)
-    
+
     def split(self) -> List["Line"]:
         if len(self.words) >= 4 or len(self.words) <= 1:
             return [self]
@@ -97,5 +100,6 @@ class Line(BaseModel):
                 bottom=word["bottom"],
                 level=self.level,
                 type=self.type,
-            ) for word in self.words
+            )
+            for word in self.words
         ]
