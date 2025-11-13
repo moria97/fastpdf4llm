@@ -13,8 +13,8 @@ from fastpdf4llm.models.content import Content, sort_content
 from fastpdf4llm.models.line import Line, LineType
 from fastpdf4llm.models.parse_options import ParseOptions
 from fastpdf4llm.utils.font import is_bold_font, round_font_size
-from fastpdf4llm.utils.table_utils import is_table_empty, table_to_markdown
 from fastpdf4llm.utils.number_utils import is_hierarchical_number
+from fastpdf4llm.utils.table_utils import is_table_empty, table_to_markdown
 
 
 def is_english(text):
@@ -251,7 +251,6 @@ class PageConverter:
             max_line_end = -1
             last_line_level = ""
             last_line_bottom = 0
-            last_line_is_hierarchical = False
             for line in content.lines:
                 max_line_end = max(max_line_end, line.right)
             for line in content.lines:
@@ -290,10 +289,7 @@ class PageConverter:
                     if line_is_hierarchical and not content_markdown.endswith("\n\n"):
                         content_markdown = content_markdown.rstrip("\n") + "\n\n"
 
-                    if line_bold:
-                        line_markdown = f"**{span_text}**"
-                    else:
-                        line_markdown = span_text
+                    line_markdown = f"**{span_text}**" if line_bold else span_text
 
                     if line_bold or line.right < max_line_end * 0.9 or line.level:
                         should_break_line = True

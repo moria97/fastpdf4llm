@@ -3,8 +3,8 @@ from typing import List
 from pydantic import BaseModel
 
 from fastpdf4llm.models.constants import MAX_HEIGHT_GAP_SIZE, MAX_WIDTH_GAP_SIZE
-from fastpdf4llm.models.parse_options import ParseOptions
 from fastpdf4llm.models.line import Line, LineType
+from fastpdf4llm.models.parse_options import ParseOptions
 
 """
 Content 表示一个内容块，包含一个或多个行，行之间可能存在间隙，行之间可能存在合并

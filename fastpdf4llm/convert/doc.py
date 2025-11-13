@@ -4,9 +4,9 @@ import pdfplumber
 from loguru import logger
 
 from fastpdf4llm.convert.page import PageConverter
+from fastpdf4llm.models.parse_options import ParseOptions
 from fastpdf4llm.models.progress import ProcessPhase, ProgressInfo, create_progress_info
 from fastpdf4llm.utils.font import FontSizeClassifier, round_font_size
-from fastpdf4llm.models.parse_options import ParseOptions
 
 
 def report_progress(

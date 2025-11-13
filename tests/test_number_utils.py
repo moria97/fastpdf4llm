@@ -1,6 +1,5 @@
 """Tests for line model and hierarchical number detection."""
 
-import pytest
 
 from fastpdf4llm.utils.number_utils import is_hierarchical_number
 

@@ -1,8 +1,8 @@
 from typing import Callable, Optional
 
 from fastpdf4llm.convert.doc import convert_doc
-from fastpdf4llm.models.progress import ProgressInfo
 from fastpdf4llm.models.parse_options import ParseOptions
+from fastpdf4llm.models.progress import ProgressInfo
 
 
 def to_markdown(

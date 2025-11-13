@@ -1,4 +1,3 @@
-import re
 from enum import Enum
 from typing import Any, Dict, List, Optional
 
@@ -6,7 +5,6 @@ from pydantic import BaseModel
 
 from fastpdf4llm.models.constants import MAX_WIDTH_GAP_SIZE
 from fastpdf4llm.models.parse_options import ParseOptions
-from fastpdf4llm.utils.font import is_bold_font
 
 
 class LineType(str, Enum):
