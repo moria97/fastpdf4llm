@@ -9,16 +9,25 @@ from pdfplumber.page import Page
 from pdfplumber.table import Table
 
 from fastpdf4llm.models.constants import DEFAULT_IMAGE_SAVE_DIR
-from fastpdf4llm.models.content import Content
+from fastpdf4llm.models.content import Content, sort_content
 from fastpdf4llm.models.line import Line, LineType
+from fastpdf4llm.models.parse_options import ParseOptions
 from fastpdf4llm.utils.font import is_bold_font, round_font_size
+from fastpdf4llm.utils.number_utils import is_hierarchical_number
 from fastpdf4llm.utils.table_utils import is_table_empty, table_to_markdown
+
+
+def is_english(text):
+    # 正则匹配：仅允许英文字母(a-z, A-Z)、数字(0-9)、常见标点和空格
+    pattern = r"^[a-zA-Z0-9\s.,!?\'\"()\-:;]+$"
+    return bool(re.fullmatch(pattern, text))
 
 
 class PageConverter:
     def __init__(
         self,
         page: Page,
+        parse_options: ParseOptions,
         size_to_level: Dict[float, str],
         normal_text_size: float,
         image_dir: Optional[str] = None,
@@ -28,6 +37,7 @@ class PageConverter:
         self.normal_text_size = normal_text_size
         self.image_dir = image_dir or DEFAULT_IMAGE_SAVE_DIR
         self.text_content_area = self.page
+        self.parse_options = parse_options
         os.makedirs(self.image_dir, exist_ok=True)
 
     def _is_valid_table(self, table: Table) -> bool:
@@ -148,22 +158,25 @@ class PageConverter:
 
         # Process text content with font information
         cur_line = None
+        page_width = self.page.width
         for word in self.text_content_area.dedupe_chars().extract_words(extra_attrs=["size", "fontname"]):
-            if cur_line and cur_line.should_merge(word["x0"], word["x1"], word["top"], word["bottom"]):
+            if cur_line and cur_line.should_merge(
+                word["x0"], word["x1"], word["top"], word["bottom"], self.parse_options
+            ):
                 cur_line.merge(word)
             else:
                 if cur_line:
-                    for sub_line in cur_line.split():
+                    for sub_line in cur_line.split(page_width=page_width):
                         if contents and contents[-1].should_add(sub_line):
                             contents[-1].add_line(sub_line)
                         else:
                             contents.append(
                                 Content(
                                     lines=[sub_line],
-                                    left=cur_line.left,
-                                    right=cur_line.right,
-                                    top=cur_line.top,
-                                    bottom=cur_line.bottom,
+                                    left=sub_line.left,
+                                    right=sub_line.right,
+                                    top=sub_line.top,
+                                    bottom=sub_line.bottom,
                                 )
                             )
 
@@ -180,17 +193,23 @@ class PageConverter:
                     type=LineType.TEXT,
                 )
 
-        if contents and contents[-1].should_add(cur_line):
-            contents[-1].add_line(cur_line)
-        else:
-            contents.append(
-                Content(
-                    lines=[cur_line], left=cur_line.left, right=cur_line.right, top=cur_line.top, bottom=cur_line.bottom
-                )
-            )
+        if cur_line:
+            for sub_line in cur_line.split(page_width=page_width):
+                if contents and contents[-1].should_add(sub_line):
+                    contents[-1].add_line(sub_line)
+                else:
+                    contents.append(
+                        Content(
+                            lines=[sub_line],
+                            left=sub_line.left,
+                            right=sub_line.right,
+                            top=sub_line.top,
+                            bottom=sub_line.bottom,
+                        )
+                    )
 
         contents.extend(media_contents)
-        contents = sorted(contents)
+        contents = sort_content(contents)
         final_contents = []
         visited = [False] * len(contents)
         for i in range(len(contents)):
@@ -204,15 +223,15 @@ class PageConverter:
                 for j in range(i + 1, len(contents)):
                     if visited[j]:
                         continue
-                    if content.should_merge(contents[j]):
-                        content.merge(contents[j])
+                    if content.should_merge(contents[j], self.parse_options):
+                        content.merge(contents[j], self.parse_options)
                         visited[j] = True
                         new_merged = True
 
             final_contents.append(content)
             visited[i] = True
 
-        final_contents = sorted(final_contents)
+        final_contents = sort_content(final_contents)
 
         return final_contents
 
@@ -229,83 +248,83 @@ class PageConverter:
         md_content = ""
         for content in contents:
             content_markdown = ""
-            last_line_end = -1
+            max_line_end = -1
+            last_line_level = ""
+            last_line_bottom = 0
             for line in content.lines:
+                max_line_end = max(max_line_end, line.right)
+            for line in content.lines:
+                line_bold = False
+
                 if line.type == LineType.TEXT:
                     if not line.words:
                         continue
-                    line_markdown = ""
-                    last_is_bold = is_bold_font(line.words[0]["fontname"])
-                    current_bbox = (
-                        line.words[0]["x0"],
-                        line.words[0]["top"],
-                        line.words[0]["x1"],
-                        line.words[0]["bottom"],
-                    )
-                    for word in line.words[1:]:
-                        word_is_bold = is_bold_font(word["fontname"])
-                        word_bbox = (word["x0"], word["top"], word["x1"], word["bottom"])
 
-                        if word_is_bold != last_is_bold:
-                            try:
-                                span_text = (
-                                    self.text_content_area.within_bbox(current_bbox)
-                                    .dedupe_chars()
-                                    .extract_text()
-                                    .strip()
-                                )
-                            except Exception as ex:
-                                logger.warning(
-                                    f"Failed to find span {current_bbox}, processing word {word}, reason: {ex}"
-                                )
-                                continue
-
-                            if last_is_bold:
-                                line_markdown += f"**{span_text}**"
-                            else:
-                                line_markdown += span_text
-                            current_bbox = word_bbox
-                            last_is_bold = word_is_bold
+                    non_bold_width = 0
+                    bold_width = 0
+                    for word in line.words:
+                        if is_bold_font(word["fontname"]):
+                            bold_width += word["x1"] - word["x0"]
                         else:
-                            current_bbox = (
-                                min(current_bbox[0], word_bbox[0]),
-                                min(current_bbox[1], word_bbox[1]),
-                                max(current_bbox[2], word_bbox[2]),
-                                max(current_bbox[3], word_bbox[3]),
-                            )
+                            non_bold_width += word["x1"] - word["x0"]
+
+                    line_bold = bold_width > non_bold_width
 
                     try:
+                        current_bbox = (line.left, line.top, line.right, line.bottom)
                         span_text = (
-                            self.text_content_area.within_bbox(current_bbox).dedupe_chars().extract_text().strip()
+                            self.text_content_area.within_bbox(current_bbox)
+                            .dedupe_chars()
+                            .extract_text(
+                                x_tolerance=self.parse_options.x_tolerance, y_tolerance=self.parse_options.y_tolerance
+                            )
+                            .strip()
                         )
                     except Exception:
                         logger.warning(f"Failed to find span {current_bbox}.")
                         continue
 
-                    if last_is_bold:
-                        line_markdown += f"**{span_text}**"
-                    else:
-                        line_markdown += span_text
+                    # 序号开头，直接添加换行
+                    line_is_hierarchical = is_hierarchical_number(span_text)
+                    if line_is_hierarchical and not content_markdown.endswith("\n\n"):
+                        content_markdown = content_markdown.rstrip("\n") + "\n\n"
 
-                    if line.right < last_line_end * 0.9 or line.level:
+                    line_markdown = f"**{span_text}**" if line_bold else span_text
+
+                    if line_bold or line.right < max_line_end * 0.9 or line.level:
                         should_break_line = True
                     else:
                         should_break_line = self.should_break_line(span_text)
 
                     if should_break_line:
-                        line_markdown += "\n"
-
-                    last_line_end = max(last_line_end, line.right)
+                        line_markdown += "\n\n"
 
                     if line.level:
-                        line_markdown = f"{line.level} {line_markdown}"
+                        if (
+                            last_line_level == line.level
+                            and line.top > last_line_bottom
+                            and line.top - last_line_bottom < 0.5 * (line.bottom - line.top)
+                        ):
+                            content_markdown = content_markdown.rstrip("\n")
+                            if is_english(line_markdown):
+                                line_markdown = " " + line_markdown
+                        else:
+                            line_markdown = f"{line.level} {line_markdown}"
                 else:
                     line_markdown = "\n" + line.words[0]["text"]
 
+                last_line_level = line.level
+                last_line_bottom = line.bottom
+
                 if line_markdown:
-                    content_markdown += line_markdown + "\n"
+                    content_markdown += line_markdown
 
             if content_markdown:
-                md_content += content_markdown + "\n\n"
+                if content_markdown.endswith("\n\n"):
+                    md_content += content_markdown
+                elif content_markdown.endswith("\n"):
+                    md_content += content_markdown + "\n"
+                else:
+                    md_content += content_markdown + "\n\n"
 
         return md_content

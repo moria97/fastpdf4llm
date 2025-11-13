@@ -16,15 +16,15 @@ repos:
   # Ruff - fast Python linter and formatter (using local installation)
   - repo: local
     hooks:
-      - id: ruff
-        name: ruff
-        entry: ruff check --fix
+      - id: ruff-check
+        name: ruff check
+        entry: ruff check --fix --exit-non-zero-on-fix
         language: system
         types: [python]
         require_serial: false
         pass_filenames: true
       - id: ruff-format
-        name: ruff-format
+        name: ruff format
         entry: ruff format
         language: system
         types: [python]
