@@ -77,8 +77,8 @@ def table_to_markdown(table: Table, header: str = "###") -> str:
 
     markdown_lines = []
 
-    if sanitized_table[0] and sanitized_table[0][0].strip():
-        markdown_lines.extend([f"{header}", ""])
+    # if sanitized_table[0] and sanitized_table[0][0].strip():
+    #    markdown_lines.extend([f"{header}", ""])
 
     # Create table structure
     markdown_lines.extend(

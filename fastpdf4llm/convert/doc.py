@@ -6,6 +6,7 @@ from loguru import logger
 from fastpdf4llm.convert.page import PageConverter
 from fastpdf4llm.models.progress import ProcessPhase, ProgressInfo, create_progress_info
 from fastpdf4llm.utils.font import FontSizeClassifier, round_font_size
+from fastpdf4llm.models.parse_options import ParseOptions
 
 
 def report_progress(
@@ -17,7 +18,9 @@ def report_progress(
 
 
 def collect_statistics(
-    pdf, progress_callback: Optional[Callable[[ProgressInfo], None]] = None
+    pdf: pdfplumber.PDF,
+    parse_options: ParseOptions,
+    progress_callback: Optional[Callable[[ProgressInfo], None]] = None,
 ) -> Tuple[Counter, Counter]:
     """Collect font statistics from PDF with progress tracking."""
     total_pages = len(pdf.pages)
@@ -45,7 +48,9 @@ def collect_statistics(
                 continue
 
         # dedupe chars to avoid duplicate characters https://github.com/langchain-ai/langchain/pull/10165/files
-        words = non_table_content.dedupe_chars().extract_words(extra_attrs=["size"])
+        words = non_table_content.dedupe_chars().extract_words(
+            extra_attrs=["size"], x_tolerance=parse_options.x_tolerance, y_tolerance=parse_options.y_tolerance
+        )
         for word in words:
             word_size = round_font_size(word["size"])
             font_size_text_count[word_size] += len(word["text"])
@@ -54,8 +59,12 @@ def collect_statistics(
 
 
 def convert_doc(
-    pdf_path: str, image_dir: Optional[str] = None, progress_callback: Optional[Callable[[ProgressInfo], None]] = None
+    pdf_path: str,
+    image_dir: Optional[str] = None,
+    parse_options: Optional[ParseOptions] = None,
+    progress_callback: Optional[Callable[[ProgressInfo], None]] = None,
 ) -> str:
+    parse_options = parse_options or ParseOptions()
     md_content = ""
     with pdfplumber.open(pdf_path, unicode_norm="NFKD") as pdf:
         initial_progress = create_progress_info(
@@ -64,7 +73,7 @@ def convert_doc(
         report_progress(initial_progress, progress_callback)
 
         # Analyze font statistics
-        font_size_text_count = collect_statistics(pdf)
+        font_size_text_count = collect_statistics(pdf, parse_options)
         if not font_size_text_count:
             logger.warning("No text found in the PDF.")
             return md_content
@@ -91,9 +100,10 @@ def convert_doc(
             report_progress(progress_info, progress_callback)
 
             converter = PageConverter(
-                page,
-                classifier.size_to_level,
-                classifier.normal_text_size,
+                page=page,
+                parse_options=parse_options,
+                size_to_level=classifier.size_to_level,
+                normal_text_size=classifier.normal_text_size,
                 image_dir=image_dir,
             )
             md_content += converter.to_markdown()

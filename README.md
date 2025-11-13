@@ -72,6 +72,43 @@ markdown_content = to_markdown(
 )
 ```
 
+### With Custom Parse Options
+
+```python
+from fastpdf4llm import to_markdown
+from fastpdf4llm.models.parse_options import ParseOptions
+
+# Customize parsing options for better text extraction
+parse_options = ParseOptions(
+    x_tolerance=3,  # Control spacing between words (default: 3)
+    y_tolerance=3   # Control spacing between lines (default: 3)
+)
+
+markdown_content = to_markdown(
+    "path/to/your/document.pdf",
+    parse_options=parse_options
+)
+```
+
+### Combined Usage
+
+```python
+from fastpdf4llm import to_markdown, ProgressInfo
+from fastpdf4llm.models.parse_options import ParseOptions
+
+def progress_callback(progress: ProgressInfo):
+    print(f"Progress: {progress.percentage:.1f}%")
+
+parse_options = ParseOptions(x_tolerance=5, y_tolerance=5)
+
+markdown_content = to_markdown(
+    "path/to/your/document.pdf",
+    image_dir="./images",
+    parse_options=parse_options,
+    progress_callback=progress_callback
+)
+```
+
 ## API Reference
 
 ### `to_markdown`
@@ -82,6 +119,7 @@ Convert a PDF file to Markdown format.
 
 - `pdf_path` (str): Path to the PDF file to convert
 - `image_dir` (Optional[str]): Directory to save extracted images. Defaults to `./tmp/images/`
+- `parse_options` (Optional[ParseOptions]): Parsing options to control text extraction. Defaults to `ParseOptions(x_tolerance=3, y_tolerance=3)`
 - `progress_callback` (Optional[Callable[[ProgressInfo], None]]): Callback function for progress updates
 
 **Returns:**
@@ -104,6 +142,33 @@ content = to_markdown(
 )
 ```
 
+### `ParseOptions`
+
+Parsing options to customize PDF text extraction behavior.
+
+**Attributes:**
+
+- `x_tolerance` (float): Controls spacing tolerance between words horizontally. Default: `3`
+  - Lower values: More strict word separation (better for well-formatted PDFs)
+  - Higher values: More lenient word grouping (better for PDFs with irregular spacing)
+- `y_tolerance` (float): Controls spacing tolerance between lines vertically. Default: `3`
+  - Lower values: More strict line separation
+  - Higher values: More lenient line grouping
+
+**Example:**
+
+```python
+from fastpdf4llm.models.parse_options import ParseOptions
+
+# For PDFs with tight spacing
+tight_options = ParseOptions(x_tolerance=1, y_tolerance=1)
+
+# For PDFs with loose spacing
+loose_options = ParseOptions(x_tolerance=5, y_tolerance=5)
+
+markdown_content = to_markdown("document.pdf", parse_options=tight_options)
+```
+
 ### `ProgressInfo`
 
 Progress information model for tracking conversion progress.
@@ -123,13 +188,15 @@ Progress information model for tracking conversion progress.
 3. **Smart Formatting**: Automatically detects headings based on font size analysis
 4. **Table Detection**: Identifies and converts tables to Markdown table format
 5. **Image Extraction**: Extracts images and saves them to the specified directory
+6. **Configurable Parsing**: Adjustable tolerance settings for optimal text extraction from various PDF layouts
 
 ## Examples
 
 See the `examples/` directory for more usage examples:
 
-- `convert_financial_report/`: Converting financial reports with tables and images
-- `convert_table/`: Converting PDFs with complex tables
+- `financial_report_cn/`: Converting financial reports with tables and images
+- `table_data/`: Converting PDFs with complex tables
+- `car_user_manual/`: Converting car user manuals with extensive images and structured content
 
 ## Requirements
 

@@ -153,6 +153,9 @@ cython_debug/
 # Temporary images directory (from DEFAULT_IMAGE_SAVE_DIR)
 tmp/
 
+# Private files
+private/
+
 # PDF files in examples (optional - uncomment if you don't want to track example PDFs)
 # examples/**/*.pdf
 

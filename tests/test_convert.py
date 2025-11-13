@@ -15,7 +15,7 @@ def pdf_path():
     """Return the path to the test PDF file."""
     # Get the project root directory (parent of tests directory)
     project_root = Path(__file__).parent.parent
-    pdf_file = project_root / "examples" / "convert_table" / "national-capitals.pdf"
+    pdf_file = project_root / "examples" / "table_data" / "national-capitals.pdf"
 
     if not pdf_file.exists():
         pytest.skip(f"Test PDF file not found: {pdf_file}")
@@ -136,3 +136,29 @@ def test_empty_progress_callback(pdf_path):
     assert result is not None
     assert isinstance(result, str)
     assert len(result) > 0
+
+
+def test_invalid_pdf_file_raises_error():
+    """Test that an invalid/corrupted PDF file raises ValueError."""
+    import tempfile
+
+    # Create a temporary file that is not a valid PDF
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".pdf", delete=False) as tmp_file:
+        tmp_file.write("This is not a PDF file")
+        tmp_path = tmp_file.name
+
+    try:
+        with pytest.raises(Exception) as exc_info:
+            to_markdown(tmp_path)
+
+        # Verify error message contains useful information
+        error_msg = str(exc_info.value)
+        assert (
+            "Invalid PDF file" in error_msg
+            or "not a valid PDF" in error_msg
+            or "corrupted" in error_msg
+            or "No /Root object! " in error_msg
+        )
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
