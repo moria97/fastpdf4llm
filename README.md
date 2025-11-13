@@ -195,8 +195,11 @@ Progress information model for tracking conversion progress.
 See the `examples/` directory for more usage examples:
 
 - `financial_report_cn/`: Converting financial reports with tables and images
+  - [Example output: 平安财报2016.md](https://github.com/moria97/fastpdf4llm/blob/main/examples/financial_report_cn/平安财报2016.md)
 - `table_data/`: Converting PDFs with complex tables
+  - [Example output: national-capitals.md](https://github.com/moria97/fastpdf4llm/blob/main/examples/table_data/national-capitals.md)
 - `car_user_manual/`: Converting car user manuals with extensive images and structured content
+  - [Example output: tesla_model3_user_manual.pdf.md](https://github.com/moria97/fastpdf4llm/blob/main/examples/car_user_manual/tesla_model3_user_manual.pdf.md)
 
 ## Requirements
 
