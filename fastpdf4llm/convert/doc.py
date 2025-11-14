@@ -1,4 +1,6 @@
-from typing import Callable, Counter, Optional, Tuple
+from typing import Callable, Counter, Optional, Tuple, Union
+import pathlib
+from io import BufferedReader, BytesIO
 
 import pdfplumber
 from loguru import logger
@@ -59,14 +61,15 @@ def collect_statistics(
 
 
 def convert_doc(
-    pdf_path: str,
+    path_or_fp: Union[str, pathlib.Path, BufferedReader, BytesIO],
+    extract_images: bool = True,
     image_dir: Optional[str] = None,
     parse_options: Optional[ParseOptions] = None,
     progress_callback: Optional[Callable[[ProgressInfo], None]] = None,
 ) -> str:
     parse_options = parse_options or ParseOptions()
     md_content = ""
-    with pdfplumber.open(pdf_path, unicode_norm="NFKD") as pdf:
+    with pdfplumber.open(path_or_fp, unicode_norm="NFKD") as pdf:
         initial_progress = create_progress_info(
             phase=ProcessPhase.ANALYSIS, current_page=0, total_pages=len(pdf.pages), message="Starting PDF analysis"
         )
@@ -102,6 +105,7 @@ def convert_doc(
             converter = PageConverter(
                 page=page,
                 parse_options=parse_options,
+                extract_images=extract_images,
                 size_to_level=classifier.size_to_level,
                 normal_text_size=classifier.normal_text_size,
                 image_dir=image_dir,

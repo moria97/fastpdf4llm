@@ -1,4 +1,6 @@
-from typing import Callable, Optional
+from typing import Callable, Optional, Union
+import pathlib
+from io import BufferedReader, BytesIO
 
 from fastpdf4llm.convert.doc import convert_doc
 from fastpdf4llm.models.parse_options import ParseOptions
@@ -6,9 +8,10 @@ from fastpdf4llm.models.progress import ProgressInfo
 
 
 def to_markdown(
-    pdf_path: str,
+    path_or_fp: Union[str, pathlib.Path, BufferedReader, BytesIO],
+    extract_images: bool = True,
     image_dir: Optional[str] = None,
     parse_options: Optional[ParseOptions] = None,
     progress_callback: Optional[Callable[[ProgressInfo], None]] = None,
 ) -> str:
-    return convert_doc(pdf_path, image_dir, parse_options, progress_callback)
+    return convert_doc(path_or_fp, extract_images, image_dir, parse_options, progress_callback)
