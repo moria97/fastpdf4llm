@@ -15,7 +15,7 @@ def pdf_path():
     """Return the path to the test PDF file."""
     # Get the project root directory (parent of tests directory)
     project_root = Path(__file__).parent.parent
-    pdf_file = project_root / "examples" / "table_data" / "national-capitals.pdf"
+    pdf_file = project_root / "tests" / "data" / "multi_modal_test_tesla.pdf"
 
     if not pdf_file.exists():
         pytest.skip(f"Test PDF file not found: {pdf_file}")
@@ -162,3 +162,136 @@ def test_invalid_pdf_file_raises_error():
     finally:
         if os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+def test_conversion_with_pathlib_path(pdf_path):
+    """Test conversion with pathlib.Path object."""
+    from pathlib import Path
+
+    path_obj = Path(pdf_path)
+    result = to_markdown(path_obj)
+
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_conversion_with_file_object(pdf_path):
+    """Test conversion with file object (BufferedReader)."""
+    with open(pdf_path, "rb") as f:
+        result = to_markdown(f)
+
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_conversion_with_bytesio(pdf_path):
+    """Test conversion with BytesIO object."""
+    from io import BytesIO
+
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+
+    bytes_io = BytesIO(pdf_bytes)
+    result = to_markdown(bytes_io)
+
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_conversion_with_parse_options(pdf_path):
+    """Test conversion with custom ParseOptions."""
+    from fastpdf4llm.models.parse_options import ParseOptions
+
+    parse_options = ParseOptions(x_tolerance=5, y_tolerance=5)
+    result = to_markdown(pdf_path, parse_options=parse_options)
+
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+
+def test_conversion_with_all_options(pdf_path, temp_image_dir):
+    """Test conversion with all options combined."""
+    from pathlib import Path
+
+    from fastpdf4llm.models.parse_options import ParseOptions
+
+    parse_options = ParseOptions(x_tolerance=3, y_tolerance=3)
+    path_obj = Path(pdf_path)
+
+    progress_calls = []
+
+    def progress_callback(progress: ProgressInfo):
+        progress_calls.append(progress)
+
+    result = to_markdown(
+        path_obj, image_dir=temp_image_dir, parse_options=parse_options, progress_callback=progress_callback
+    )
+
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 0
+    assert len(progress_calls) > 0
+    assert os.path.exists(temp_image_dir)
+
+
+def test_no_image_mode(pdf_path):
+    """Test conversion with image extraction disabled."""
+    import re
+
+    no_image_dir = "./tmp/no_images"
+
+    result = to_markdown(pdf_path, extract_images=False, image_dir=no_image_dir)
+
+    assert result is not None
+    assert isinstance(result, str)
+    assert len(result) > 0
+
+    # Verify no image markdown syntax in output
+    # Pattern matches: ![](url) or ![alt](url)
+    image_pattern = r"!\[.*?\]\(.*?\)"
+    matches = re.findall(image_pattern, result)
+    assert len(matches) == 0, f"Found image markdown patterns in no-image mode: {matches}"
+
+    assert not os.path.exists(no_image_dir), "Image directory should not be created when extract_images is False."
+
+
+def test_image_mode_vs_no_image_mode(pdf_path, temp_image_dir):
+    """Test that extract_images parameter affects image extraction."""
+    no_image_dir = "./tmp/no_images"
+    image_dir = "./tmp/images"
+
+    # Test with images enabled
+    result_with_images = to_markdown(pdf_path, extract_images=True, image_dir=image_dir)
+
+    # Test with images disabled
+    result_without_images = to_markdown(pdf_path, extract_images=False, image_dir=no_image_dir)
+
+    # Both should produce markdown
+    assert isinstance(result_with_images, str)
+    assert isinstance(result_without_images, str)
+    assert len(result_with_images) > 0
+    assert len(result_without_images) > 0
+
+    # When extract_images=False, markdown should not contain image references
+    import re
+
+    # Pattern matches: ![](url) or ![alt](url)
+    image_pattern = r"!\[.*?\]\(.*?\)"
+
+    images_with = re.findall(image_pattern, result_with_images)
+    images_without = re.findall(image_pattern, result_without_images)
+
+    # When extract_images=False, there should be no image markdown patterns
+    assert len(images_without) == 0, f"Found image patterns in no-image mode: {images_without}"
+
+    # If PDF has images, result_with_images should have more image patterns
+    # (or at least the same, but typically more)
+    assert len(images_with) == 3, "Image mode should have equal or more image patterns"
+
+    assert not os.path.exists(no_image_dir), "Image directory should not be created when extract_images is False."
+    assert os.path.exists(image_dir), "Image directory should be created when extract_images is True."
+    assert len(os.listdir(image_dir)) == 3, "Image directory should contain images when extract_images is True."

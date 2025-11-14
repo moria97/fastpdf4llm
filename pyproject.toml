@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "fastpdf4llm"
-version = "0.1.2"
+version = "0.1.3"
 description = "A fast PDF to Markdown converter optimized for LLM processing"
 authors = ["Yue Fei <feiyue297@qq.com>"]
 readme = "README.md"

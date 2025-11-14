@@ -10,7 +10,7 @@ A fast and efficient PDF to Markdown converter optimized for LLM (Large Language
 
 - 🚀 **Fast Processing**: Efficient PDF parsing and conversion
 - 📊 **Table Extraction**: Automatically detects and converts tables to Markdown format
-- 🖼️ **Image Support**: Extracts and saves images from PDFs
+- 🖼️ **Image Support**: Extracts and saves images from PDFs (can be disabled for text-only processing)
 - 📝 **Smart Formatting**: Intelligently identifies headings based on font sizes
 - 📈 **Progress Tracking**: Built-in progress callback support
 - 🎯 **LLM Optimized**: Output format optimized for LLM consumption
@@ -58,6 +58,34 @@ with open("output.md", "w", encoding="utf-8") as f:
     f.write(markdown_content)
 ```
 
+
+### With Different Input Types
+
+The `to_markdown` function accepts multiple input types:
+
+```python
+from fastpdf4llm import to_markdown
+from pathlib import Path
+from io import BytesIO
+
+# String path (traditional)
+markdown_content = to_markdown("path/to/document.pdf")
+
+# Pathlib Path object
+markdown_content = to_markdown(Path("path/to/document.pdf"))
+
+# File object
+with open("path/to/document.pdf", "rb") as f:
+    markdown_content = to_markdown(f)
+
+# BytesIO (in-memory PDF)
+with open("path/to/document.pdf", "rb") as f:
+    pdf_bytes = f.read()
+
+bytes_io = BytesIO(pdf_bytes)
+markdown_content = to_markdown(bytes_io)
+```
+
 ### With Custom Image Directory
 
 ```python
@@ -103,6 +131,19 @@ markdown_content = to_markdown(
 )
 ```
 
+### No Image Mode
+
+```python
+from fastpdf4llm import to_markdown
+
+# Disable image extraction for faster processing
+# Useful when you only need text content
+markdown_content = to_markdown(
+    "path/to/your/document.pdf",
+    extract_images=False
+)
+```
+
 ### Combined Usage
 
 ```python
@@ -117,6 +158,7 @@ parse_options = ParseOptions(x_tolerance=5, y_tolerance=5)
 markdown_content = to_markdown(
     "path/to/your/document.pdf",
     image_dir="./images",
+    extract_images=True,
     parse_options=parse_options,
     progress_callback=progress_callback
 )
@@ -130,8 +172,11 @@ Convert a PDF file to Markdown format.
 
 **Parameters:**
 
-- `pdf_path` (str): Path to the PDF file to convert
-- `image_dir` (Optional[str]): Directory to save extracted images. Defaults to `./tmp/images/`
+- `path_or_fp` (Union[str, pathlib.Path, BufferedReader, BytesIO]): PDF file path, Path object, file handle, or BytesIO object
+- `image_dir` (Optional[str]): Directory to save extracted images. Defaults to `./tmp/images/`. Only used when `extract_images=True`
+- `extract_images` (bool): Whether to extract and save images from PDF. Default: `True`
+  - Set to `False` to skip image extraction for faster processing
+  - When `False`, images are ignored and not included in the markdown output
 - `parse_options` (Optional[ParseOptions]): Parsing options to control text extraction. Defaults to `ParseOptions(x_tolerance=3, y_tolerance=3)`
 - `progress_callback` (Optional[Callable[[ProgressInfo], None]]): Callback function for progress updates
 
@@ -149,9 +194,16 @@ def on_progress(progress: ProgressInfo):
     print(f"Progress: {progress.percentage:.1f}%")
 
 content = to_markdown(
-    pdf_path="document.pdf",
+    "document.pdf",
     image_dir="./output_images",
+    extract_images=True,
     progress_callback=on_progress
+)
+
+# No image mode example
+content_text_only = to_markdown(
+    "document.pdf",
+    extract_images=False
 )
 ```
 
@@ -223,7 +275,7 @@ cd fastpdf4llm
 # Install dependencies
 poetry install
 
-# Install pre-commit hooks
+# Install pre-commit hooks (runs automatically on git commit)
 poetry run pre-commit install
 ```
 
@@ -255,11 +307,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 Contributions are welcome! Please feel free to submit a Pull Request.
 
-## Author
-
-Yue Fei - [feiyue297@qq.com](mailto:feiyue297@qq.com)
-
 ## Repository
 
 [https://github.com/moria97/fastpdf4llm](https://github.com/moria97/fastpdf4llm)
-

@@ -30,15 +30,18 @@ class PageConverter:
         parse_options: ParseOptions,
         size_to_level: Dict[float, str],
         normal_text_size: float,
+        extract_images: bool = True,
         image_dir: Optional[str] = None,
     ):
         self.page = page
         self.size_to_level = size_to_level
         self.normal_text_size = normal_text_size
+        self.extract_images = extract_images
         self.image_dir = image_dir or DEFAULT_IMAGE_SAVE_DIR
         self.text_content_area = self.page
         self.parse_options = parse_options
-        os.makedirs(self.image_dir, exist_ok=True)
+        if self.extract_images:
+            os.makedirs(self.image_dir, exist_ok=True)
 
     def _is_valid_table(self, table: Table) -> bool:
         """Check if table bounds are within page bounds."""
@@ -99,62 +102,63 @@ class PageConverter:
                 )
             )
 
-        for image in self.page.images:
-            image_bbox = (image["x0"], image["top"], image["x1"], image["bottom"])
+        if self.extract_images:
+            for image in self.page.images:
+                image_bbox = (image["x0"], image["top"], image["x1"], image["bottom"])
 
-            try:
-                # 按照固定尺寸剪切出来，直接使用“stream”的bytes会加载报错 https://github.com/jsvine/pdfplumber/discussions/496
-                image_page = self.page.crop(image_bbox)
-                img_obj = image_page.to_image(width=image["width"])
-                image_bytes_io = BytesIO()
-                img_obj.save(image_bytes_io, format="PNG")
-                image_bytes = image_bytes_io.getvalue()
+                try:
+                    # 按照固定尺寸剪切出来，直接使用“stream”的bytes会加载报错 https://github.com/jsvine/pdfplumber/discussions/496
+                    image_page = self.page.crop(image_bbox)
+                    img_obj = image_page.to_image(width=image["width"])
+                    image_bytes_io = BytesIO()
+                    img_obj.save(image_bytes_io, format="PNG")
+                    image_bytes = image_bytes_io.getvalue()
 
-                # 写入文件
-                image_md5 = hashlib.md5(image_bytes).hexdigest()
-                image_path = os.path.join(self.image_dir, f"{image_md5}.png")
-                with open(image_path, "wb") as f:
-                    f.write(image_bytes)
-                    logger.info(f"Save image to {image_path} successfully.")
+                    # 写入文件
+                    image_md5 = hashlib.md5(image_bytes).hexdigest()
+                    image_path = os.path.join(self.image_dir, f"{image_md5}.png")
+                    with open(image_path, "wb") as f:
+                        f.write(image_bytes)
+                        logger.info(f"Save image to {image_path} successfully.")
 
-                word = {
-                    "text": f"![]({image_path})\n\n",
-                    "x0": image["x0"],
-                    "x1": image["x1"],
-                    "top": image["top"],
-                    "bottom": image["bottom"],
-                    "fontname": "",
-                    "size": self.normal_text_size,
-                }
+                    word = {
+                        "text": f"![]({image_path})\n\n",
+                        "x0": image["x0"],
+                        "x1": image["x1"],
+                        "top": image["top"],
+                        "bottom": image["bottom"],
+                        "fontname": "",
+                        "size": self.normal_text_size,
+                    }
 
-                media_contents.append(
-                    Content(
-                        lines=[
-                            Line(
-                                words=[word],
-                                left=image["x0"],
-                                right=image["x1"],
-                                top=image["top"],
-                                bottom=image["bottom"],
-                                type=LineType.IMAGE,
-                            )
-                        ],
-                        left=image["x0"],
-                        right=image["x1"],
-                        top=image["top"],
-                        bottom=image["bottom"],
+                    media_contents.append(
+                        Content(
+                            lines=[
+                                Line(
+                                    words=[word],
+                                    left=image["x0"],
+                                    right=image["x1"],
+                                    top=image["top"],
+                                    bottom=image["bottom"],
+                                    type=LineType.IMAGE,
+                                )
+                            ],
+                            left=image["x0"],
+                            right=image["x1"],
+                            top=image["top"],
+                            bottom=image["bottom"],
+                        )
                     )
-                )
 
-            except Exception as ex:
-                logger.warning(f"Parse image failed: {ex}")
-                continue
+                except Exception as ex:
+                    logger.warning(f"Parse image failed: {ex}")
+                    continue
 
-            try:
-                self.text_content_area = self.text_content_area.outside_bbox(image_bbox)
-            except ValueError as ex:
-                logger.warning(f"Image is not within the text content area. {ex}")
-                continue
+                try:
+                    self.text_content_area = self.text_content_area.outside_bbox(image_bbox)
+                except ValueError as ex:
+                    logger.warning(f"Image is not within the text content area. {ex}")
+                    continue
 
         # Process text content with font information
         cur_line = None
