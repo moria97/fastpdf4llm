@@ -81,7 +81,7 @@ with open("path/to/document.pdf", "rb") as f:
 # BytesIO (in-memory PDF)
 with open("path/to/document.pdf", "rb") as f:
     pdf_bytes = f.read()
-    
+
 bytes_io = BytesIO(pdf_bytes)
 markdown_content = to_markdown(bytes_io)
 ```
@@ -275,7 +275,7 @@ cd fastpdf4llm
 # Install dependencies
 poetry install
 
-# Install pre-commit hooks
+# Install pre-commit hooks (runs automatically on git commit)
 poetry run pre-commit install
 ```
 
@@ -310,4 +310,3 @@ Contributions are welcome! Please feel free to submit a Pull Request.
 ## Repository
 
 [https://github.com/moria97/fastpdf4llm](https://github.com/moria97/fastpdf4llm)
-
