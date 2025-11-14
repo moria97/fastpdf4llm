@@ -1,6 +1,6 @@
-from typing import Callable, Optional, Union
 import pathlib
 from io import BufferedReader, BytesIO
+from typing import Callable, Optional, Union
 
 from fastpdf4llm.convert.doc import convert_doc
 from fastpdf4llm.models.parse_options import ParseOptions

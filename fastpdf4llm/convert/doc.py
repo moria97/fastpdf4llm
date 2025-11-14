@@ -1,6 +1,6 @@
-from typing import Callable, Counter, Optional, Tuple, Union
 import pathlib
 from io import BufferedReader, BytesIO
+from typing import Callable, Counter, Optional, Tuple, Union
 
 import pdfplumber
 from loguru import logger
