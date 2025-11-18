@@ -276,16 +276,18 @@ class PageConverter:
 
                     try:
                         current_bbox = (line.left, line.top, line.right, line.bottom)
+
                         span_text = (
                             self.text_content_area.within_bbox(current_bbox)
                             .dedupe_chars()
                             .extract_text(
-                                x_tolerance=self.parse_options.x_tolerance, y_tolerance=self.parse_options.y_tolerance
+                                x_tolerance_ratio=self.parse_options.x_tolerance_ratio,
+                                y_tolerance=self.parse_options.y_tolerance,
                             )
                             .strip()
                         )
-                    except Exception:
-                        logger.warning(f"Failed to find span {current_bbox}.")
+                    except Exception as ex:
+                        logger.warning(f"Failed to find span {current_bbox}. {ex}")
                         continue
 
                     # 序号开头，直接添加换行
@@ -293,7 +295,7 @@ class PageConverter:
                     if line_is_hierarchical and not content_markdown.endswith("\n\n"):
                         content_markdown = content_markdown.rstrip("\n") + "\n\n"
 
-                    line_markdown = f"**{span_text}**" if line_bold else span_text
+                    line_markdown = f"**{span_text}**" if line_bold and not line.level else span_text
 
                     if line_bold or line.right < max_line_end * 0.9 or line.level:
                         should_break_line = True

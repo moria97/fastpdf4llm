@@ -1,4 +1,4 @@
-# **World Capital Cities**
+# World Capital Cities
 
 Percent "%" is city population as a percentage of the country, as of "Year".
 
@@ -247,4 +247,3 @@ World Capital Cities, Page 5 of 6
 | Åland (Finland) | Mariehamn | 11736 | 39.0% | 2021 |
 
 World Capital Cities, Page 6 of 6
-

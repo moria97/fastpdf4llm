@@ -205,7 +205,7 @@ def test_conversion_with_parse_options(pdf_path):
     """Test conversion with custom ParseOptions."""
     from fastpdf4llm.models.parse_options import ParseOptions
 
-    parse_options = ParseOptions(x_tolerance=5, y_tolerance=5)
+    parse_options = ParseOptions(x_tolerance_ratio=0.25, y_tolerance=5)
     result = to_markdown(pdf_path, parse_options=parse_options)
 
     assert result is not None
@@ -219,7 +219,7 @@ def test_conversion_with_all_options(pdf_path, temp_image_dir):
 
     from fastpdf4llm.models.parse_options import ParseOptions
 
-    parse_options = ParseOptions(x_tolerance=3, y_tolerance=3)
+    parse_options = ParseOptions(x_tolerance_ratio=0.15, y_tolerance=3)
     path_obj = Path(pdf_path)
 
     progress_calls = []

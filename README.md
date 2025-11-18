@@ -121,8 +121,8 @@ from fastpdf4llm.models.parse_options import ParseOptions
 
 # Customize parsing options for better text extraction
 parse_options = ParseOptions(
-    x_tolerance=3,  # Control spacing between words (default: 3)
-    y_tolerance=3   # Control spacing between lines (default: 3)
+    x_tolerance_ratio=0.15,  # Ratio of x_tolerance to page width (default: 0.15)
+    y_tolerance=3            # Control spacing between lines (default: 3)
 )
 
 markdown_content = to_markdown(
@@ -153,7 +153,7 @@ from fastpdf4llm.models.parse_options import ParseOptions
 def progress_callback(progress: ProgressInfo):
     print(f"Progress: {progress.percentage:.1f}%")
 
-parse_options = ParseOptions(x_tolerance=5, y_tolerance=5)
+parse_options = ParseOptions(x_tolerance_ratio=0.25, y_tolerance=5)
 
 markdown_content = to_markdown(
     "path/to/your/document.pdf",
@@ -177,7 +177,7 @@ Convert a PDF file to Markdown format.
 - `extract_images` (bool): Whether to extract and save images from PDF. Default: `True`
   - Set to `False` to skip image extraction for faster processing
   - When `False`, images are ignored and not included in the markdown output
-- `parse_options` (Optional[ParseOptions]): Parsing options to control text extraction. Defaults to `ParseOptions(x_tolerance=3, y_tolerance=3)`
+- `parse_options` (Optional[ParseOptions]): Parsing options to control text extraction. Defaults to `ParseOptions(x_tolerance_ratio=0.15, y_tolerance=3)`
 - `progress_callback` (Optional[Callable[[ProgressInfo], None]]): Callback function for progress updates
 
 **Returns:**
@@ -213,9 +213,9 @@ Parsing options to customize PDF text extraction behavior.
 
 **Attributes:**
 
-- `x_tolerance` (float): Controls spacing tolerance between words horizontally. Default: `3`
-  - Lower values: More strict word separation (better for well-formatted PDFs)
-  - Higher values: More lenient word grouping (better for PDFs with irregular spacing)
+- `x_tolerance_ratio` (float): Ratio of x_tolerance to page width for controlling spacing tolerance between words horizontally. Default: `0.15`
+  - Lower values (e.g., 0.1): More strict word separation (better for well-formatted PDFs)
+  - Higher values (e.g., 0.25): More lenient word grouping (better for PDFs with irregular spacing)
 - `y_tolerance` (float): Controls spacing tolerance between lines vertically. Default: `3`
   - Lower values: More strict line separation
   - Higher values: More lenient line grouping
@@ -226,10 +226,10 @@ Parsing options to customize PDF text extraction behavior.
 from fastpdf4llm.models.parse_options import ParseOptions
 
 # For PDFs with tight spacing
-tight_options = ParseOptions(x_tolerance=1, y_tolerance=1)
+tight_options = ParseOptions(x_tolerance_ratio=0.1, y_tolerance=1)
 
 # For PDFs with loose spacing
-loose_options = ParseOptions(x_tolerance=5, y_tolerance=5)
+loose_options = ParseOptions(x_tolerance_ratio=0.25, y_tolerance=5)
 
 markdown_content = to_markdown("document.pdf", parse_options=tight_options)
 ```

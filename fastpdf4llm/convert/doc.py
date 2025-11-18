@@ -51,7 +51,9 @@ def collect_statistics(
 
         # dedupe chars to avoid duplicate characters https://github.com/langchain-ai/langchain/pull/10165/files
         words = non_table_content.dedupe_chars().extract_words(
-            extra_attrs=["size"], x_tolerance=parse_options.x_tolerance, y_tolerance=parse_options.y_tolerance
+            extra_attrs=["size"],
+            x_tolerance_ratio=parse_options.x_tolerance_ratio,
+            y_tolerance=parse_options.y_tolerance,
         )
         for word in words:
             word_size = round_font_size(word["size"])
@@ -93,7 +95,7 @@ def convert_doc(
 
         total_pages = len(pdf.pages)
 
-        for i, page in enumerate(pdf.pages, 1):
+        for i, page in enumerate(pdf.pages):
             progress_info = create_progress_info(
                 phase=ProcessPhase.CONVERSION,
                 current_page=i,
@@ -110,5 +112,6 @@ def convert_doc(
                 normal_text_size=classifier.normal_text_size,
                 image_dir=image_dir,
             )
+
             md_content += converter.to_markdown()
     return md_content
