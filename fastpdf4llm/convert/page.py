@@ -9,8 +9,9 @@ from pdfplumber.page import Page
 from pdfplumber.table import Table
 
 from fastpdf4llm.models.constants import DEFAULT_IMAGE_SAVE_DIR
-from fastpdf4llm.models.content import Content, sort_content
+from fastpdf4llm.models.content import ContentBlock
 from fastpdf4llm.models.line import Line, LineType
+from fastpdf4llm.models.paragraph import Paragraph, sort_paragraph
 from fastpdf4llm.models.parse_options import ParseOptions
 from fastpdf4llm.utils.font import is_bold_font, round_font_size
 from fastpdf4llm.utils.number_utils import is_hierarchical_number
@@ -55,8 +56,8 @@ class PageConverter:
             and table_bbox[3] <= page_bbox[3]
         )
 
-    def extract_contents(self) -> List[Content]:
-        contents: List[Content] = []
+    def extract_contents(self) -> List[Paragraph]:
+        contents: List[Paragraph] = []
         tables = self.page.dedupe_chars().find_tables()
         valid_tables = [table for table in tables if self._is_valid_table(table)]
 
@@ -84,7 +85,7 @@ class PageConverter:
             logger.info(f"Table to markdown: {word['text']}")
 
             media_contents.append(
-                Content(
+                Paragraph(
                     lines=[
                         Line(
                             words=[word],
@@ -132,7 +133,7 @@ class PageConverter:
                     }
 
                     media_contents.append(
-                        Content(
+                        Paragraph(
                             lines=[
                                 Line(
                                     words=[word],
@@ -175,7 +176,7 @@ class PageConverter:
                             contents[-1].add_line(sub_line)
                         else:
                             contents.append(
-                                Content(
+                                Paragraph(
                                     lines=[sub_line],
                                     left=sub_line.left,
                                     right=sub_line.right,
@@ -203,7 +204,7 @@ class PageConverter:
                     contents[-1].add_line(sub_line)
                 else:
                     contents.append(
-                        Content(
+                        Paragraph(
                             lines=[sub_line],
                             left=sub_line.left,
                             right=sub_line.right,
@@ -213,7 +214,7 @@ class PageConverter:
                     )
 
         contents.extend(media_contents)
-        contents = sort_content(contents)
+        contents = sort_paragraph(contents)
         final_contents = []
         visited = [False] * len(contents)
         for i in range(len(contents)):
@@ -235,7 +236,7 @@ class PageConverter:
             final_contents.append(content)
             visited[i] = True
 
-        final_contents = sort_content(final_contents)
+        final_contents = sort_paragraph(final_contents)
 
         return final_contents
 
@@ -245,7 +246,6 @@ class PageConverter:
 
         return False
 
-    # Process text with mixed styles
     def to_markdown(self) -> str:
         contents = self.extract_contents()
 
@@ -334,3 +334,130 @@ class PageConverter:
                     md_content += content_markdown + "\n\n"
 
         return md_content
+
+    def to_content_list(self) -> List[ContentBlock]:
+        contents = self.extract_contents()
+
+        content_list: List[ContentBlock] = []
+
+        for content in contents:
+            current_text: str = ""
+            current_bbox = None
+            max_line_end = -1
+            for line in content.lines:
+                max_line_end = max(max_line_end, line.right)
+
+            for line in content.lines:
+                line_bold = False
+                line_bbox = (line.left, line.top, line.right, line.bottom)
+
+                if line.type == LineType.TEXT:
+                    if not line.words:
+                        continue
+
+                    non_bold_width = 0
+                    bold_width = 0
+                    for word in line.words:
+                        if is_bold_font(word["fontname"]):
+                            bold_width += word["x1"] - word["x0"]
+                        else:
+                            non_bold_width += word["x1"] - word["x0"]
+
+                    line_bold = bold_width > non_bold_width
+
+                    try:
+                        span_text = (
+                            self.text_content_area.within_bbox(line_bbox)
+                            .dedupe_chars()
+                            .extract_text(
+                                x_tolerance_ratio=self.parse_options.x_tolerance_ratio,
+                                y_tolerance=self.parse_options.y_tolerance,
+                            )
+                            .strip()
+                        )
+                    except Exception as ex:
+                        logger.warning(f"Failed to find span {line_bbox}. {ex}")
+                        continue
+
+                    if line.level:
+                        if current_text:
+                            content_list.append(
+                                ContentBlock(
+                                    type=LineType.TEXT,
+                                    text=current_text,
+                                    text_level=len(line.level),
+                                    page=self.page.page_number,
+                                    bbox=current_bbox,
+                                )
+                            )
+                        content_list.append(
+                            ContentBlock(
+                                type=LineType.TEXT,
+                                text=f"{line.level} {span_text}",
+                                text_level=len(line.level),
+                                page=self.page.page_number,
+                                bbox=line_bbox,
+                            )
+                        )
+                        current_text = ""
+                        current_bbox = None
+                        continue
+
+                    # 序号开头，直接添加换行
+                    line_is_hierarchical = is_hierarchical_number(span_text)
+                    if line_is_hierarchical and current_text and not current_text.endswith("\n\n"):
+                        current_text = current_text.rstrip("\n") + "\n\n"
+
+                    line_markdown = f"**{span_text}**" if line_bold and not line.level else span_text
+
+                    if line_bold or line.right < max_line_end * 0.9 or line.level:
+                        should_break_line = True
+                    else:
+                        should_break_line = self.should_break_line(span_text)
+
+                    if should_break_line:
+                        line_markdown += "\n\n"
+
+                    current_text += line_markdown
+                    if current_bbox is None:
+                        current_bbox = line_bbox
+                    else:
+                        current_bbox = (
+                            min(current_bbox[0], line_bbox[0]),
+                            min(current_bbox[1], line_bbox[1]),
+                            max(current_bbox[2], line_bbox[2]),
+                            max(current_bbox[3], line_bbox[3]),
+                        )
+                else:
+                    if current_text:
+                        content_list.append(
+                            ContentBlock(
+                                type=LineType.TEXT,
+                                text=current_text,
+                                page=self.page.page_number,
+                                bbox=current_bbox,
+                            )
+                        )
+                    content_list.append(
+                        ContentBlock(
+                            type=line.type,
+                            text=line.words[0]["text"],
+                            page=self.page.page_number,
+                            bbox=line_bbox,
+                        )
+                    )
+                    current_text = ""
+                    current_bbox = None
+
+            if current_text:
+                content_list.append(
+                    ContentBlock(
+                        type=LineType.TEXT,
+                        text=current_text,
+                        text_level=None,
+                        page=self.page.page_number,
+                        bbox=current_bbox,
+                    )
+                )
+
+        return content_list

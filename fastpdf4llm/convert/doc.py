@@ -1,11 +1,12 @@
 import pathlib
 from io import BufferedReader, BytesIO
-from typing import Callable, Counter, Optional, Tuple, Union
+from typing import Callable, Counter, List, Optional, Tuple, Union
 
 import pdfplumber
 from loguru import logger
 
 from fastpdf4llm.convert.page import PageConverter
+from fastpdf4llm.models.content import ContentBlock
 from fastpdf4llm.models.parse_options import ParseOptions
 from fastpdf4llm.models.progress import ProcessPhase, ProgressInfo, create_progress_info
 from fastpdf4llm.utils.font import FontSizeClassifier, round_font_size
@@ -115,3 +116,59 @@ def convert_doc(
 
             md_content += converter.to_markdown()
     return md_content
+
+
+def convert_doc_to_content_list(
+    path_or_fp: Union[str, pathlib.Path, BufferedReader, BytesIO],
+    extract_images: bool = True,
+    image_dir: Optional[str] = None,
+    parse_options: Optional[ParseOptions] = None,
+    progress_callback: Optional[Callable[[ProgressInfo], None]] = None,
+) -> List[ContentBlock]:
+    parse_options = parse_options or ParseOptions()
+    content_list: List[ContentBlock] = []
+
+    with pdfplumber.open(path_or_fp, unicode_norm="NFKD") as pdf:
+        initial_progress = create_progress_info(
+            phase=ProcessPhase.ANALYSIS, current_page=0, total_pages=len(pdf.pages), message="Starting PDF analysis"
+        )
+        report_progress(initial_progress, progress_callback)
+
+        # Analyze font statistics
+        font_size_text_count = collect_statistics(pdf, parse_options)
+        if not font_size_text_count:
+            logger.warning("No text found in the PDF.")
+            return content_list
+        classifier = FontSizeClassifier(font_size_text_count)
+
+        # Report analysis completion
+        analysis_complete = create_progress_info(
+            phase=ProcessPhase.CONVERSION,
+            current_page=0,
+            total_pages=len(pdf.pages),
+            message="Analysis complete, beginning content extraction",
+        )
+        report_progress(analysis_complete, progress_callback)
+
+        total_pages = len(pdf.pages)
+
+        for i, page in enumerate(pdf.pages):
+            progress_info = create_progress_info(
+                phase=ProcessPhase.CONVERSION,
+                current_page=i,
+                total_pages=total_pages,
+                message="Converting content to Markdown",
+            )
+            report_progress(progress_info, progress_callback)
+
+            converter = PageConverter(
+                page=page,
+                parse_options=parse_options,
+                extract_images=extract_images,
+                size_to_level=classifier.size_to_level,
+                normal_text_size=classifier.normal_text_size,
+                image_dir=image_dir,
+            )
+
+            content_list.extend(converter.to_content_list())
+    return content_list

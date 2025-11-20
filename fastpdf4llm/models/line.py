@@ -49,14 +49,14 @@ class Line(BaseModel):
                 self.words.append(word)
 
     def split(self, page_width: float) -> List["Line"]:
-        if len(self.words) >= 4 or len(self.words) <= 1 or self.right - self.left < page_width * 0.4:
+        if len(self.words) >= 3 or len(self.words) <= 1 or self.right - self.left < page_width * 0.4:
             return [self]
 
-        # 如果最后一个字符的x坐标小于页面宽度的一半，则不拆分
-        if self.words[-1]["x0"] < page_width * 0.5:
+        # 如果第一个字符从右侧开始 / 最后一个字符的x坐标小于页面宽度的一半，则不拆分
+        if self.words[-1]["x0"] < page_width * 0.5 or self.words[0]["x0"] >= page_width * 0.4:
             return [self]
 
-        # 2 列或者3列的情况，拆分
+        # 2 列的情况，拆分
         return [
             Line(
                 words=[word],
