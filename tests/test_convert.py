@@ -6,7 +6,8 @@ from pathlib import Path
 
 import pytest
 
-from fastpdf4llm import ProgressInfo, to_markdown
+from fastpdf4llm import ProgressInfo, to_content_list, to_markdown
+from fastpdf4llm.models.content import ContentBlock
 from fastpdf4llm.models.progress import ProcessPhase
 
 
@@ -205,7 +206,7 @@ def test_conversion_with_parse_options(pdf_path):
     """Test conversion with custom ParseOptions."""
     from fastpdf4llm.models.parse_options import ParseOptions
 
-    parse_options = ParseOptions(x_tolerance=5, y_tolerance=5)
+    parse_options = ParseOptions(x_tolerance_ratio=0.25, y_tolerance=5)
     result = to_markdown(pdf_path, parse_options=parse_options)
 
     assert result is not None
@@ -219,7 +220,7 @@ def test_conversion_with_all_options(pdf_path, temp_image_dir):
 
     from fastpdf4llm.models.parse_options import ParseOptions
 
-    parse_options = ParseOptions(x_tolerance=3, y_tolerance=3)
+    parse_options = ParseOptions(x_tolerance_ratio=0.15, y_tolerance=3)
     path_obj = Path(pdf_path)
 
     progress_calls = []
@@ -295,3 +296,243 @@ def test_image_mode_vs_no_image_mode(pdf_path, temp_image_dir):
     assert not os.path.exists(no_image_dir), "Image directory should not be created when extract_images is False."
     assert os.path.exists(image_dir), "Image directory should be created when extract_images is True."
     assert len(os.listdir(image_dir)) == 3, "Image directory should contain images when extract_images is True."
+
+
+# Tests for to_content_list function
+
+
+def test_to_content_list_basic(pdf_path):
+    """Test basic PDF to content list conversion."""
+    result = to_content_list(pdf_path)
+
+    # Check that result is not empty
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) > 0
+
+    # Check that all items are ContentBlock instances
+    for block in result:
+        assert isinstance(block, ContentBlock)
+
+
+def test_to_content_list_structure(pdf_path):
+    """Test that content list contains properly structured ContentBlock objects."""
+    result = to_content_list(pdf_path)
+
+    assert len(result) > 0
+
+    for block in result:
+        # Verify ContentBlock structure
+        assert hasattr(block, "type")
+        assert block.type in ["text", "table", "image"]
+        assert hasattr(block, "text")
+        assert hasattr(block, "text_level")
+        assert hasattr(block, "page")
+        assert hasattr(block, "bbox")
+
+        # Verify types
+        assert isinstance(block.type, str)
+        if block.text is not None:
+            assert isinstance(block.text, str)
+        if block.text_level is not None:
+            assert isinstance(block.text_level, int)
+        if block.page is not None:
+            assert isinstance(block.page, int)
+            assert block.page > 0
+        if block.bbox is not None:
+            assert isinstance(block.bbox, tuple)
+            assert len(block.bbox) == 4
+            assert all(isinstance(coord, (int, float)) for coord in block.bbox)
+
+
+def test_to_content_list_contains_text(pdf_path):
+    """Test that content list contains text blocks."""
+    result = to_content_list(pdf_path)
+
+    # Should have at least some text blocks
+    text_blocks = [block for block in result if block.type == "text" and block.text]
+    assert len(text_blocks) > 0, "Should have at least one text block"
+
+    # Verify text blocks have content
+    for block in text_blocks:
+        assert block.text is not None
+        assert len(block.text.strip()) > 0
+
+
+def test_to_content_list_with_pathlib_path(pdf_path):
+    """Test to_content_list with pathlib.Path object."""
+    from pathlib import Path
+
+    path_obj = Path(pdf_path)
+    result = to_content_list(path_obj)
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) > 0
+
+
+def test_to_content_list_with_file_object(pdf_path):
+    """Test to_content_list with file object (BufferedReader)."""
+    with open(pdf_path, "rb") as f:
+        result = to_content_list(f)
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) > 0
+
+
+def test_to_content_list_with_bytesio(pdf_path):
+    """Test to_content_list with BytesIO object."""
+    from io import BytesIO
+
+    with open(pdf_path, "rb") as f:
+        pdf_bytes = f.read()
+
+    bytes_io = BytesIO(pdf_bytes)
+    result = to_content_list(bytes_io)
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) > 0
+
+
+def test_to_content_list_with_parse_options(pdf_path):
+    """Test to_content_list with custom ParseOptions."""
+    from fastpdf4llm.models.parse_options import ParseOptions
+
+    parse_options = ParseOptions(x_tolerance_ratio=0.25, y_tolerance=5)
+    result = to_content_list(pdf_path, parse_options=parse_options)
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) > 0
+
+
+def test_to_content_list_progress_callback(pdf_path):
+    """Test that progress callback is called during to_content_list conversion."""
+    progress_calls = []
+
+    def progress_callback(progress: ProgressInfo):
+        progress_calls.append(progress)
+        assert isinstance(progress.phase, ProcessPhase)
+        assert isinstance(progress.current_page, int)
+        assert isinstance(progress.total_pages, int)
+        assert isinstance(progress.percentage, float)
+        assert isinstance(progress.message, str)
+
+    _ = to_content_list(pdf_path, progress_callback=progress_callback)
+
+    # Verify that callback was called at least once
+    assert len(progress_calls) > 0, "Progress callback should be called at least once"
+
+    # Verify that we got progress for both phases
+    phases = [call.phase for call in progress_calls]
+    assert ProcessPhase.ANALYSIS in phases, "Should have analysis phase progress"
+    assert ProcessPhase.CONVERSION in phases, "Should have conversion phase progress"
+
+
+def test_to_content_list_no_image_mode(pdf_path):
+    """Test to_content_list with image extraction disabled."""
+    no_image_dir = "./tmp/no_images"
+
+    result = to_content_list(pdf_path, extract_images=False, image_dir=no_image_dir)
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) > 0
+
+    # Verify no image blocks when extract_images is False
+    image_blocks = [block for block in result if block.type == "image"]
+    assert len(image_blocks) == 0, "Should have no image blocks when extract_images is False"
+
+    # Image directory should not be created
+    assert not os.path.exists(no_image_dir), "Image directory should not be created when extract_images is False."
+
+
+def test_to_content_list_with_all_options(pdf_path, temp_image_dir):
+    """Test to_content_list with all options combined."""
+    from pathlib import Path
+
+    from fastpdf4llm.models.parse_options import ParseOptions
+
+    parse_options = ParseOptions(x_tolerance_ratio=0.15, y_tolerance=3)
+    path_obj = Path(pdf_path)
+
+    progress_calls = []
+
+    def progress_callback(progress: ProgressInfo):
+        progress_calls.append(progress)
+
+    result = to_content_list(
+        path_obj, image_dir=temp_image_dir, parse_options=parse_options, progress_callback=progress_callback
+    )
+
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) > 0
+    assert len(progress_calls) > 0
+
+
+def test_to_content_list_empty_progress_callback(pdf_path):
+    """Test that to_content_list works with None progress callback."""
+    result = to_content_list(pdf_path, progress_callback=None)
+    assert result is not None
+    assert isinstance(result, list)
+    assert len(result) > 0
+
+
+def test_to_content_list_invalid_pdf_path():
+    """Test that invalid PDF path raises appropriate error."""
+    with pytest.raises((FileNotFoundError, OSError, Exception)):
+        to_content_list("nonexistent_file.pdf")
+
+
+def test_to_content_list_invalid_pdf_file_raises_error():
+    """Test that an invalid/corrupted PDF file raises ValueError."""
+    import tempfile
+
+    # Create a temporary file that is not a valid PDF
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".pdf", delete=False) as tmp_file:
+        tmp_file.write("This is not a PDF file")
+        tmp_path = tmp_file.name
+
+    try:
+        with pytest.raises(Exception) as exc_info:
+            to_content_list(tmp_path)
+
+        # Verify error message contains useful information
+        error_msg = str(exc_info.value)
+        assert (
+            "Invalid PDF file" in error_msg
+            or "not a valid PDF" in error_msg
+            or "corrupted" in error_msg
+            or "No /Root object! " in error_msg
+        )
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
+
+
+def test_to_content_list_page_numbers(pdf_path):
+    """Test that content blocks have correct page numbers."""
+    result = to_content_list(pdf_path)
+
+    # All blocks should have page numbers
+    for block in result:
+        if block.page is not None:
+            assert isinstance(block.page, int)
+            assert block.page > 0
+
+
+def test_to_content_list_bbox_format(pdf_path):
+    """Test that bbox values are in correct format (x0, y0, x1, y1)."""
+    result = to_content_list(pdf_path)
+
+    for block in result:
+        if block.bbox is not None:
+            x0, y0, x1, y1 = block.bbox
+            # Verify bbox coordinates are valid (x1 >= x0, y1 >= y0)
+            assert x1 >= x0, "x1 should be >= x0"
+            assert y1 >= y0, "y1 should be >= y0"
+            # Verify all coordinates are non-negative (typical for PDF coordinates)
+            assert x0 >= 0 and y0 >= 0 and x1 >= 0 and y1 >= 0
