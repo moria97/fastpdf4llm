@@ -108,9 +108,10 @@ class PageConverter:
                 image_bbox = (image["x0"], image["top"], image["x1"], image["bottom"])
 
                 try:
-                    # 按照固定尺寸剪切出来，直接使用“stream”的bytes会加载报错 https://github.com/jsvine/pdfplumber/discussions/496
+                    # 按照固定尺寸剪切出来，直接使用"stream"的bytes会加载报错 https://github.com/jsvine/pdfplumber/discussions/496
+                    # 使用高分辨率(300 DPI)保留高清图片，默认72 DPI会导致图片模糊
                     image_page = self.page.crop(image_bbox)
-                    img_obj = image_page.to_image(width=image["width"])
+                    img_obj = image_page.to_image(resolution=300)
                     image_bytes_io = BytesIO()
                     img_obj.save(image_bytes_io, format="PNG")
                     image_bytes = image_bytes_io.getvalue()
